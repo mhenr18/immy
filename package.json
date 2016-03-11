@@ -1,0 +1,20 @@
+{
+  "name": "immy",
+  "version": "0.1.0",
+  "description": "Immutable data structures that don't sacrifice performance",
+  "main": "src/immy.js",
+  "scripts": {
+    "benchmark": "cd benchmarks && node main.js",
+    "test": "mocha --recursive tests",
+    "coverage": "istanbul cover _mocha -- --recursive tests"
+  },
+  "author": "Matthew Henry",
+  "license": "MIT",
+  "devDependencies": {
+    "benchmark": "^2.1.0",
+    "immutable": "^3.7.6",
+    "istanbul": "^0.4.2",
+    "mocha": "^2.4.5",
+    "seamless-immutable": "^5.1.0"
+  }
+}
