@@ -1,7 +1,7 @@
 {
   "name": "immy",
   "version": "0.1.0",
-  "description": "Immutable data structures that don't sacrifice performance",
+  "description": "Immutable data structures with a focus on performance",
   "main": "src/immy.js",
   "scripts": {
     "benchmark": "cd benchmarks && node main.js",
