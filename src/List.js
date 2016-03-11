@@ -41,8 +41,13 @@ var patchFunctions = [
 ];
 
 
-function List() {
-    this.buffer = null;
+function List(initBuffer) {
+    if (initBuffer != null) {
+        this.buffer = initBuffer.slice();
+    } else {
+        this.buffer = null;
+    }
+
     this.patchSource = null;
     this.patchType = LIST_PATCH_NONE;
     this.patchData = null;
