@@ -6,6 +6,7 @@
 var LIST_PATCH_NONE = -1;
 var LIST_PATCH_POP = 0;
 var LIST_PATCH_PUSH = 1;
+var LIST_PATCH_SET = 2;
 
 // performs a patch on a list so that it will have a buffer. the patch source is
 // assumed to have a buffer already. the patch will result in the list's patch
@@ -38,6 +39,21 @@ var patchFunctions = [
         list.buffer = target.buffer;
         target.buffer = null;
         list.buffer.push(list.patchData);
+
+        list.patchData = null;
+        list.patchType = LIST_PATCH_NONE;
+    },
+
+    // LIST_PATCH_SET
+    function (list) {
+        var target = list.patchSource;
+        target.patchSource = list;
+        target.patchType = LIST_PATCH_SET;
+        target.patchData = [list.patchData[0], target.buffer[list.patchData[0]]];
+
+        list.buffer = target.buffer;
+        target.buffer = null;
+        list.buffer[list.patchData[0]] = list.patchData[1];
 
         list.patchData = null;
         list.patchType = LIST_PATCH_NONE;
@@ -110,6 +126,22 @@ List.prototype.size = function () {
 List.prototype.get = function (index) {
     this.__getBuffer();
     return this.buffer[index];
+};
+
+List.prototype.set = function (index, newValue) {
+    this.__getBuffer();
+
+    var newList = new List();
+
+    this.patchSource = newList;
+    this.patchType = LIST_PATCH_SET;
+    this.patchData = [index, this.buffer[index]];
+
+    newList.buffer = this.buffer;
+    this.buffer = null;
+    newList.buffer[index] = newValue;
+
+    return newList;
 };
 
 List.prototype.forEach = function (fn) {
