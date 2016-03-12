@@ -9,7 +9,11 @@ var LIST_PATCH_PUSH = 1;
 
 // performs a patch on a list so that it will have a buffer. the patch source is
 // assumed to have a buffer already. the patch will result in the list's patch
-// source now using the list as a source, and the list won't need a patch
+// source now using the list as a source, and the list won't need a patch.
+//
+// benchmarking showed that it was *much* faster to save a patch type + data
+// rather than using a callback, so we're taking this approach. it's not as
+// elegant code-wise but we'll do anything for speed
 
 var patchFunctions = [
     // LIST_PATCH_POP

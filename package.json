@@ -1,6 +1,6 @@
 {
   "name": "immy",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Immutable data structures with a focus on performance",
   "main": "src/immy.js",
   "scripts": {
@@ -9,7 +9,7 @@
     "coverage": "istanbul cover _mocha -- --recursive tests"
   },
   "author": "Matthew Henry",
-  "license": "MIT",
+  "license": "ISC",
   "devDependencies": {
     "benchmark": "^2.1.0",
     "immutable": "^3.7.6",

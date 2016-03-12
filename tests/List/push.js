@@ -50,5 +50,23 @@ describe('List', function () {
             assert.equal(b.get(0), d.get(0));
             assert.equal(c.get(1), d.get(1));
         });
+
+        it('should work even if the list has already been pushed to', function () {
+            var a = new Immy.List();
+            var b = a.push('foo');
+            var c = b.push('bar');
+            var d = c.push('baz');
+
+            var x = b.push('woot');
+
+            assert.equal(d.size(), 3);
+            assert.equal(d.get(0), 'foo');
+            assert.equal(d.get(1), 'bar');
+            assert.equal(d.get(2), 'baz');
+
+            assert.equal(x.size(), 2);
+            assert.equal(x.get(0), 'foo');
+            assert.equal(x.get(1), 'woot');
+        })
     });
 });
