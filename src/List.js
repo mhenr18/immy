@@ -112,4 +112,9 @@ List.prototype.get = function (index) {
     return this.buffer[index];
 };
 
+List.prototype.forEach = function (fn) {
+    this.__getBuffer();
+    this.buffer.forEach(fn);
+};
+
 module.exports = List;
