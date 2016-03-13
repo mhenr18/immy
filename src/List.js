@@ -149,4 +149,9 @@ List.prototype.forEach = function (fn) {
     this.buffer.forEach(fn);
 };
 
+// doesn't need a __getBuffer call because set and get do that for us
+List.prototype.withMutation = function (index, fn) {
+    return this.set(index, fn(this.get(index)));
+};
+
 module.exports = List;
