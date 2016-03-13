@@ -15,6 +15,7 @@
     "immutable": "^3.7.6",
     "istanbul": "^0.4.2",
     "mocha": "^2.4.5",
+    "mori": "^0.3.2",
     "seamless-immutable": "^5.1.0"
   }
 }

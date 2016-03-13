@@ -32,6 +32,22 @@ suite.add('Immy', {
     }
 });
 
+suite.add('mori', {
+    setup: function () {
+        var mori = require('mori');
+        var arr = [];
+
+        for (var i = 0; i < this.count; ++i) {
+            arr.push(i);
+        }
+
+        var vec = mori.toClj(arr);
+    },
+    fn: function () {
+        vec = mori.pop(vec);
+    }
+});
+
 suite.add('Immutable', {
     setup: function () {
         var Immutable = require('immutable');

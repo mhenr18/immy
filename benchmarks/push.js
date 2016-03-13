@@ -20,6 +20,16 @@ suite.add('Immy', {
     }
 });
 
+suite.add('mori', {
+    setup: function () {
+        var mori = require('mori');
+        var vec = mori.vector();
+    },
+    fn: function () {
+        vec = mori.conj(vec, 1);
+    }
+});
+
 suite.add('Immutable.js', {
     setup: function () {
         var Immutable = require('immutable');
