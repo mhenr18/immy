@@ -154,4 +154,20 @@ List.prototype.withMutation = function (index, fn) {
     return this.set(index, fn(this.get(index)));
 };
 
+List.prototype.slice = function (begin, end) {
+    // begin === undefined means begin is assumed to be zero, which means a full
+    // copy. immutable lists don't need copying so we don't need to bother with
+    // getting our buffer
+    if (begin === undefined || (begin === 0 && end === undefined)) {
+        return this;
+    }
+
+    this.__getBuffer();
+
+    var newList = new List();
+    newList.buffer = this.buffer.slice(begin, end);
+
+    return newList;
+};
+
 module.exports = List;
