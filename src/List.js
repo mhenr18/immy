@@ -7,6 +7,7 @@ var LIST_PATCH_NONE = -1;
 var LIST_PATCH_POP = 0;
 var LIST_PATCH_PUSH = 1;
 var LIST_PATCH_SET = 2;
+var LIST_PATCH_SPLICE = 3;
 
 // performs a patch on a list so that it will have a buffer. the patch source is
 // assumed to have a buffer already. the patch will result in the list's patch
@@ -57,7 +58,23 @@ var patchFunctions = [
 
         list.patchData = null;
         list.patchType = LIST_PATCH_NONE;
-    }
+    },
+
+    // LIST_PATCH_SPLICE
+    function (list) {
+        var target = list.patchSource;
+        target.patchSource = list;
+        target.patchType = LIST_PATCH_SPLICE;
+
+        var deletedItems = target.buffer.splice.apply(target.buffer, list.patchData);
+        target.patchData = [list.patchData[0], list.patchData.length - 2].concat(deletedItems);
+
+        list.buffer = target.buffer;
+        target.buffer = null;
+
+        list.patchData = null;
+        list.patchType = LIST_PATCH_NONE;
+    },
 ];
 
 
@@ -149,6 +166,11 @@ List.prototype.forEach = function (fn) {
     this.buffer.forEach(fn);
 };
 
+List.prototype.findIndex = function (pred) {
+    this.__getBuffer();
+    return this.buffer.findIndex(pred);
+};
+
 // doesn't need a __getBuffer call because set and get do that for us
 List.prototype.withMutation = function (index, fn) {
     return this.set(index, fn(this.get(index)));
@@ -164,8 +186,27 @@ List.prototype.slice = function (begin, end) {
 
     this.__getBuffer();
 
+    // note, no patch here because we keep our buffer and the slice has its own
+    var sliced = new List();
+    sliced.buffer = this.buffer.slice(begin, end);
+
+    return sliced;
+};
+
+List.prototype.splice = function (start, deleteCount) { // [, item1, item2, ...]
+    if (start === 0 && deleteCount === 0 && arguments.length === 2) {
+        return this;
+    }
+
+    var deletedItems = this.buffer.splice.apply(this.buffer, arguments);
+
     var newList = new List();
-    newList.buffer = this.buffer.slice(begin, end);
+    this.patchSource = newList;
+    this.patchType = LIST_PATCH_SPLICE;
+    this.patchData = [start, arguments.length - 2].concat(deletedItems);
+
+    newList.buffer = this.buffer;
+    this.buffer = null;
 
     return newList;
 };
