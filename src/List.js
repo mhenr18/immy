@@ -1,13 +1,9 @@
+var ListPatches = require('./ListPatches');
 
 // a List either owns a buffer and has the data, or has a reference to another
 // list and a patch that can be applied to that list to get at this list's data
 
-// list patches
-var LIST_PATCH_NONE = -1;
-var LIST_PATCH_POP = 0;
-var LIST_PATCH_PUSH = 1;
-var LIST_PATCH_SET = 2;
-var LIST_PATCH_SPLICE = 3;
+
 
 // performs a patch on a list so that it will have a buffer. the patch source is
 // assumed to have a buffer already. the patch will result in the list's patch
@@ -15,41 +11,41 @@ var LIST_PATCH_SPLICE = 3;
 //
 // benchmarking showed that it was *much* faster to save a patch type + data
 // rather than using a callback, so we're taking this approach. it's not as
-// elegant code-wise but we'll do anything for speed
+// elegant code-wise but we'll do anything for speed.
 
 var patchFunctions = [
-    // LIST_PATCH_POP
+    // ListPatches.POP
     function (list) {
         var target = list.patchSource;
         target.patchSource = list;
         target.patchData = target.buffer.pop();
-        target.patchType = LIST_PATCH_PUSH;
+        target.patchType = ListPatches.PUSH;
 
         list.buffer = target.buffer;
         target.buffer = null;
 
-        list.patchType = LIST_PATCH_NONE;
+        list.patchType = ListPatches.NONE;
     },
 
-    // LIST_PATCH_PUSH
+    // ListPatches.PUSH
     function (list) {
         var target = list.patchSource;
         target.patchSource = list;
-        target.patchType = LIST_PATCH_POP;
+        target.patchType = ListPatches.POP;
 
         list.buffer = target.buffer;
         target.buffer = null;
         list.buffer.push(list.patchData);
 
         list.patchData = null;
-        list.patchType = LIST_PATCH_NONE;
+        list.patchType = ListPatches.NONE;
     },
 
-    // LIST_PATCH_SET
+    // ListPatches.SET
     function (list) {
         var target = list.patchSource;
         target.patchSource = list;
-        target.patchType = LIST_PATCH_SET;
+        target.patchType = ListPatches.SET;
         target.patchData = [list.patchData[0], target.buffer[list.patchData[0]]];
 
         list.buffer = target.buffer;
@@ -57,14 +53,14 @@ var patchFunctions = [
         list.buffer[list.patchData[0]] = list.patchData[1];
 
         list.patchData = null;
-        list.patchType = LIST_PATCH_NONE;
+        list.patchType = ListPatches.NONE;
     },
 
-    // LIST_PATCH_SPLICE
+    // ListPatches.SPLICE
     function (list) {
         var target = list.patchSource;
         target.patchSource = list;
-        target.patchType = LIST_PATCH_SPLICE;
+        target.patchType = ListPatches.SPLICE;
 
         var deletedItems = target.buffer.splice.apply(target.buffer, list.patchData);
         target.patchData = [list.patchData[0], list.patchData.length - 2].concat(deletedItems);
@@ -73,7 +69,7 @@ var patchFunctions = [
         target.buffer = null;
 
         list.patchData = null;
-        list.patchType = LIST_PATCH_NONE;
+        list.patchType = ListPatches.NONE;
     },
 ];
 
@@ -86,7 +82,7 @@ function List(initBuffer) {
     }
 
     this.patchSource = null;
-    this.patchType = LIST_PATCH_NONE;
+    this.patchType = ListPatches.NONE;
     this.patchData = null;
 }
 
@@ -109,7 +105,7 @@ List.prototype.push = function (value) {
     var newList = new List();
 
     this.patchSource = newList;
-    this.patchType = LIST_PATCH_POP;
+    this.patchType = ListPatches.POP;
     this.patchData = null;
 
     newList.buffer = this.buffer;
@@ -125,7 +121,7 @@ List.prototype.pop = function () {
     var newList = new List();
 
     this.patchSource = newList;
-    this.patchType = LIST_PATCH_PUSH;
+    this.patchType = ListPatches.PUSH;
     this.patchData = this.buffer.pop();
 
     newList.buffer = this.buffer;
@@ -151,7 +147,7 @@ List.prototype.set = function (index, newValue) {
     var newList = new List();
 
     this.patchSource = newList;
-    this.patchType = LIST_PATCH_SET;
+    this.patchType = ListPatches.SET;
     this.patchData = [index, this.buffer[index]];
 
     newList.buffer = this.buffer;
@@ -202,13 +198,102 @@ List.prototype.splice = function (start, deleteCount) { // [, item1, item2, ...]
 
     var newList = new List();
     this.patchSource = newList;
-    this.patchType = LIST_PATCH_SPLICE;
+    this.patchType = ListPatches.SPLICE;
     this.patchData = [start, arguments.length - 2].concat(deletedItems);
 
     newList.buffer = this.buffer;
     this.buffer = null;
+    newList.removedValues = deletedItems;
 
     return newList;
+};
+
+// List.compareTo() returns an array of patches which will take this list and make
+// it equal to the otherList. i.e, if I have [a, b].compareTo([a, b, c]) then i'll
+// get a patch that will add c. swapping the lists will result in a patch that
+// would remove c.
+//
+// the returned patches won't always be minimal.
+
+List.prototype.compareTo = function (otherList) {
+    // TODO: make this efficient
+    var other = otherList.slice();
+    this.__getBuffer();
+
+    return compareArrays(this.buffer, other.buffer);
+};
+
+// returns patches that will take the from array and make it become the to array.
+// note: FROM AND TO ARE JUST JS ARRAYS, NOT IMMY LISTS.
+function compareArrays(from, to) {
+    // take the lame way out and return a "patch" that literally just removes
+    // everything and then adds the entire contents of the "to" array using a
+    // single splice.
+    //
+    // TODO: rewrite this!
+
+    return [{
+        type: ListPatches.SPLICE,
+        data: [0, from.length].concat(to)
+    }];
+}
+
+
+// the operationCallback is called every time an operation (add or remove) happens
+// to the list while the patches are being applied, so that rather than parsing
+// the patch list you can just be told what's been added and removed. sets are
+// done as a remove of the existing item + an add of the new item.
+//
+// signature of this callback is (added: bool, index: number, value: any).
+// removals will have added set to false.
+List.prototype.withPatchesApplied = function (patches, operationCallback) {
+    this.__getBuffer();
+
+    if (!operationCallback) {
+        operationCallback = function (added, index, value) {};
+    }
+
+    var patched = this;
+
+    patches.forEach(function (patch) {
+        switch (patch.type) {
+        case ListPatches.PUSH:
+            patched = patched.push(patch.data);
+            operationCallback(true, patched.size() - 1, patch.data);
+            break;
+
+        case ListPatches.POP:
+            operationCallback(false, patched.size() - 1, patched.get(patched.size() - 1));
+            patched = patched.pop();
+            break;
+
+        case ListPatches.SET:
+            operationCallback(false, patch.data[0], patched.get(patch.data[0]));
+            operationCallback(true, patch.data[0], patch.data[1]);
+            patched = patched.set.apply(patched, patch.data);
+            break;
+
+        case ListPatches.SPLICE:
+            patched = patched.splice.apply(patched, patch.data);
+
+            // removal callbacks
+            patched.removedValues.forEach(function (value, index) {
+                operationCallback(false, patch.data[0] + index, value);
+            });
+
+            // addition callbacks
+            for (var i = 2; i < patch.data.length; ++i) {
+                operationCallback(true, patch.data[0] + (i - 2), patch.data[i]);
+            }
+
+            break;
+
+        default:
+            throw new Error('unknown patch type: ' + patch.type);
+        }
+    });
+
+    return patched;
 };
 
 module.exports = List;

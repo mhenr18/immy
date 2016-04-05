@@ -1,3 +1,4 @@
 module.exports = {
-    List: require('./List')
+    List: require('./List'),
+    ListPatches: require('./ListPatches')
 };
