@@ -91,5 +91,12 @@ describe('List', function () {
             assertImmyListEquals(cpy, ['abc', 'uvw', 'xyz', 'mno']);
             assertImmyListEquals(list, ['abc', 'def', 'ghi', 'jkl', 'mno']);
         });
+
+        it('should work with no arguments', function () {
+            var list = new Immy.List(['abc', 'def', 'ghi', 'jkl', 'mno']);
+            var cpy = list.splice();
+
+            assertImmyListEquals(cpy, ['abc', 'def', 'ghi', 'jkl', 'mno']);
+        });
     });
 });
