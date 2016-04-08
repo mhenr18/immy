@@ -3,7 +3,7 @@ var ListPatches = require('./ListPatches');
 // a List either owns a buffer and has the data, or has a reference to another
 // list and a patch that can be applied to that list to get at this list's data.
 
-// lists that share a root share a buffer, this is a quick way of telling that
+// lists that share a root share a buffer - this is a quick way of checking that
 // (which is really useful for diffing because we can commit to walking the
 // changelist with full knowledge that we'll end up at where we want to be)
 var nextRoot = 0;
@@ -225,7 +225,7 @@ function walk(src) {
     }
 
     patches.reverse();
-    
+
     if (patches.length == 1) {
         return patches[0];
     } else {

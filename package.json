@@ -1,6 +1,6 @@
 {
   "name": "immy",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "Immutable data structures with a focus on performance",
   "main": "src/immy.js",
   "scripts": {
