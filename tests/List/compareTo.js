@@ -74,5 +74,57 @@ describe('List', function () {
             assert.equal(primOps[3].index, 1);
             assert.equal(primOps[3].value, 'bar');
         });
+
+        it('should work when the target list does not have a buffer', function () {
+            var a = new Immy.List([0, 1, 2, 3]);
+            var b = a.push(4);
+            var c = b.push('foo');
+            var d = c.splice(1, 1, 'bar');
+
+            var diff = d.compareTo(a);
+
+            // this will be the complete inverse of the previous test
+
+            var primOps = diff.toPrimitives();
+            assert.equal(primOps.length, 4);
+
+            assert(primOps[0] instanceof Immy.ListPatches.Remove);
+            assert.equal(primOps[0].index, 1);
+            assert.equal(primOps[0].value, 'bar');
+
+            assert(primOps[1] instanceof Immy.ListPatches.Add);
+            assert.equal(primOps[1].index, 1);
+            assert.equal(primOps[1].value, 1);
+
+            assert(primOps[2] instanceof Immy.ListPatches.Remove);
+            assert.equal(primOps[2].index, 5);
+            assert.equal(primOps[2].value, 'foo');
+
+            assert(primOps[3] instanceof Immy.ListPatches.Remove);
+            assert.equal(primOps[3].index, 4);
+            assert.equal(primOps[3].value, 4);
+        });
+
+        it('should work when neither list has a buffer', function () {
+            var a = new Immy.List([0, 1, 2, 3]);
+            var b = a.push(4);
+            var c = b.push('foo');
+            var d = c.splice(1, 1, 'bar');
+
+            var diff = a.compareTo(c);
+
+            // same as the one about relation by many, except not including d
+
+            var primOps = diff.toPrimitives();
+            assert.equal(primOps.length, 2);
+
+            assert(primOps[0] instanceof Immy.ListPatches.Add);
+            assert.equal(primOps[0].index, 4);
+            assert.equal(primOps[0].value, 4);
+
+            assert(primOps[1] instanceof Immy.ListPatches.Add);
+            assert.equal(primOps[1].index, 5);
+            assert.equal(primOps[1].value, 'foo');
+        });
     });
 });
