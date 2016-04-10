@@ -126,5 +126,80 @@ describe('List', function () {
             assert.equal(primOps[1].index, 5);
             assert.equal(primOps[1].value, 'foo');
         });
+
+        it('should return an efficient diff if disjoint lists are ordered', function () {
+            var a = new Immy.List([1,    3, 5, 7,    9]);
+            var b = new Immy.List([1, 2, 3,    7, 8])
+
+            // from a -> b, the diff is +2, -5, +8, -9 (going in order).
+            // a disjoint ordered diff guarantees that all operations will be in
+            // order of the difference.
+
+            var patch = a.compareTo(b, {
+                ordered: true,
+                comparison: function (a, b) {
+                    return a - b;
+                }
+            });
+
+            var primOps = patch.toPrimitives();
+            assert.equal(primOps.length, 4);
+
+            assert(primOps[0] instanceof Immy.ListPatches.Add);
+            assert.equal(primOps[0].index, 1);
+            assert.equal(primOps[0].value, 2);
+
+            assert(primOps[1] instanceof Immy.ListPatches.Remove);
+            assert.equal(primOps[1].index, 3);
+            assert.equal(primOps[1].value, 5);
+
+            assert(primOps[2] instanceof Immy.ListPatches.Add);
+            assert.equal(primOps[2].index, 4);
+            assert.equal(primOps[2].value, 8);
+
+            assert(primOps[3] instanceof Immy.ListPatches.Remove);
+            assert.equal(primOps[3].index, 5);
+            assert.equal(primOps[3].value, 9);
+        });
+
+        it('should return a valid diff for ordered lists', function () {
+            // run many tests of random ordered arrays being diffed - the resulting
+            // patch should always take A and make it B
+            var i, j;
+            var LIST_SIZE = 100;
+            var NUM_ITERS = 1000;
+
+            for (i = 0; i < NUM_ITERS; ++i) {
+                var a = [];
+                for (j = 0; j < LIST_SIZE; ++j) {
+                    a.push(Math.floor(Math.random() * 100));
+                }
+
+                var b = [];
+                for (j = 0; j < LIST_SIZE; ++j) {
+                    b.push(Math.floor(Math.random() * 100));
+                }
+
+                a.sort(function (x, y) { return x - y; });
+                b.sort(function (x, y) { return x - y; });
+
+                var A = new Immy.List(a);
+                var B = new Immy.List(b);
+
+                var patch = A.compareTo(B, {
+                    ordered: true,
+                    comparison: function (a, b) {
+                        return a - b;
+                    }
+                });
+
+                var patched = A.withPatchApplied(patch);
+                assert.equal(patched.size(), B.size());
+
+                for (j = 0; j < B.size(); ++j) {
+                    assert.equal(patched.get(j), B.get(j));
+                }
+            }
+        });
     });
 });

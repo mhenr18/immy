@@ -3,11 +3,6 @@ var ListPatches = require('./ListPatches');
 // a List either owns a buffer and has the data, or has a reference to another
 // list and a patch that can be applied to that list to get at this list's data.
 
-// lists that share a root share a buffer - this is a quick way of checking that
-// (which is really useful for diffing because we can commit to walking the
-// changelist with full knowledge that we'll end up at where we want to be)
-var nextRoot = 0;
-
 function List(initBuffer) {
     if (initBuffer != null) {
         this.buffer = initBuffer.slice();
@@ -17,7 +12,10 @@ function List(initBuffer) {
 
     this.patchSource = null;
     this.patch = null;
-    this.root = nextRoot++;
+
+    // lists that share a root share a buffer. {} != {} because objects are
+    // compared using reference equality, so this will always be globally unique
+    this.root = {};
 }
 
 // ensures that the list has a buffer that can be used.
@@ -51,6 +49,21 @@ List.prototype.push = function (value) {
     newList.buffer = this.buffer;
     this.buffer = null;
     newList.buffer.push(value);
+    newList.root = this.root;
+
+    return newList;
+};
+
+List.prototype.withValueAdded = function (index, value) {
+    this.__getBuffer();
+
+    var newList = new List();
+    this.patchSource = newList;
+    this.patch = new ListPatches.Remove(index, value);
+
+    newList.buffer = this.buffer;
+    this.buffer = null;
+    newList.buffer.splice(index, 0, value);
     newList.root = this.root;
 
     return newList;
@@ -108,6 +121,85 @@ List.prototype.forEach = function (fn) {
 List.prototype.findIndex = function (pred) {
     this.__getBuffer();
     return this.buffer.findIndex(pred);
+};
+
+// comparisonPred should return 0 if the supplied value is equal to the target,
+// -ve if it's less than the target, and +ve if it's greater than the target. note
+// that this function doesn't take the target itself as an argument.
+List.prototype.findIndexWithBinarySearch = function (comparisonPred) {
+    this.__getBuffer();
+
+    var minIndex = 0;
+    var maxIndex = this.buffer.length - 1;
+    var currentIndex;
+    var currentElement;
+
+    while (minIndex <= maxIndex) {
+        currentIndex = (minIndex + maxIndex) / 2 | 0;
+        currentElement = this.buffer[currentIndex];
+
+        var res = comparisonPred(currentElement);
+
+        if (res < 0) {
+            minIndex = currentIndex + 1;
+        } else if (res > 0) {
+            maxIndex = currentIndex - 1;
+        } else {
+            // make sure that we return the index of the value that's at the end
+            // of the sequence
+            while (currentIndex < this.buffer.length - 1 && comparisonPred(this.buffer[currentIndex + 1]) == 0) {
+                ++currentIndex;
+            }
+
+            return currentIndex;
+        }
+    }
+
+    return -1;
+};
+
+List.prototype.findInsertionIndexWithBinarySearch = function (comparisonPred) {
+    this.__getBuffer();
+
+    if (this.buffer.length == 0) {
+        return 0;
+    }
+
+    var minIndex = 0;
+    var maxIndex = this.buffer.length - 1;
+    var currentIndex;
+    var currentElement;
+
+    while (minIndex <= maxIndex) {
+        currentIndex = (minIndex + maxIndex) / 2 | 0;
+        currentElement = this.buffer[currentIndex];
+
+        var res = comparisonPred(currentElement);
+
+        if (res < 0) {
+            minIndex = currentIndex + 1;
+        } else if (res > 0) {
+            maxIndex = currentIndex - 1;
+        } else {
+            // found an identical value, go to the end of the sequence and then
+            // return the index that's one after that
+            while (currentIndex < this.buffer.length - 1 && comparisonPred(this.buffer[currentIndex + 1]) == 0) {
+                ++currentIndex;
+            }
+
+            return currentIndex + 1;
+        }
+    }
+
+    var res = comparisonPred(this.buffer[currentIndex]);
+    if (res > 0) {
+        // need to insert a value that will be before the current one, so use its
+        // index
+        return currentIndex;
+    } else {
+        // we want to insert after this value
+        return currentIndex + 1;
+    }
 };
 
 // doesn't need a __getBuffer call because set and get do that for us
@@ -174,7 +266,7 @@ List.prototype.splice = function (start, deleteCount) { // [, item1, item2, ...]
 //
 // the returned patches won't always be minimal, but they'll be correct.
 
-List.prototype.compareTo = function (otherList) {
+List.prototype.compareTo = function (otherList, hints) {
     if (otherList.root == this.root) {
         if (otherList == this) {
             return new ListPatches.Sequence([]);
@@ -206,6 +298,10 @@ List.prototype.compareTo = function (otherList) {
         // sharing one due to having different roots
         this.__getBuffer();
         otherList.__getBuffer();
+
+        if (hints && hints.ordered) {
+            return orderedDiff(this.buffer, otherList.buffer, hints.comparison);
+        }
 
         // we can't walk from one to the other, so we need to use an actual diff
         // algorithm (ideally) to figure out a patch
@@ -258,6 +354,59 @@ function diff(fromArr, to) {
     return new ListPatches.Sequence(patches);
 }
 
+// O(n) version of diff() that requires the A and B arrays to be ordered
+// the comparison function should be like any other list comparison method:
+//
+//   -ve if a < b
+//   0 if a = b
+//   +ve if a > b
+//
+function orderedDiff(A, B, comparison) {
+    var patches = [];
+    var i, j, k;
+
+    count = 0;
+    for (i = 0, j = 0, k = 0; i < A.length && j < B.length; ++k) {
+        var res = comparison(A[i], B[j]);
+
+        if (res == 0) {
+            // not changed
+            ++i;
+            ++j;
+        } else if (res < 0) {
+            // A[i] < B[j]
+            // means that we need to nuke stuff from A until we catch up, keep B
+            // at the same place
+            patches.push(new ListPatches.Remove(k, A[i]));
+            ++i;
+            --k;
+        } else {
+            // A[i] > B[j]
+            // means that we added stuff to B that's less than where we are in A,
+            // emit Add ops and catch B up
+            patches.push(new ListPatches.Add(k, B[j]));
+            ++j;
+        }
+    }
+
+    if (i == A.length && j != B.length) {
+        // everything at the end of B is adds
+        while (j < B.length) {
+            patches.push(new ListPatches.Add(k, B[j]));
+            ++j;
+            ++k;
+        }
+    } else if (i != A.length && j == B.length) {
+        // everything at the end of A is removes
+        while (i < A.length) {
+            patches.push(new ListPatches.Remove(k, A[i]));
+            ++i;
+        }
+    }
+
+    return new ListPatches.Sequence(patches);
+}
+
 List.prototype.withPatchApplied = function (patch) {
     this.__getBuffer();
 
@@ -270,6 +419,11 @@ List.prototype.withPatchApplied = function (patch) {
     patch.apply(newList.buffer);
 
     return newList;
+};
+
+List.prototype.join = function (separator) {
+    this.__getBuffer();
+    return this.buffer.join(separator);
 };
 
 module.exports = List;
