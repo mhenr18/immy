@@ -102,4 +102,48 @@ describe('ListPatches.Sequence', function () {
             assert.equal(primitives[4].value, 'test');
         });
     });
+
+    describe('#forEachPrimitive()', function () {
+        it('should iterate over all of the same primitive operations as toPrimitives', function () {
+            var patch = new Immy.ListPatches.Sequence([
+                new Immy.ListPatches.Add(2, 'foo'),
+                new Immy.ListPatches.Add(2, 'bar'),
+                new Immy.ListPatches.Sequence([
+                    new Immy.ListPatches.Remove(2, 'bar'),
+                    new Immy.ListPatches.Sequence([
+                        new Immy.ListPatches.Add(0, 'baz')
+                    ]),
+                    new Immy.ListPatches.Add(6, 'test')
+                ])
+            ]);
+
+            var primitives = [];
+
+            patch.forEachPrimitive(function (primOp) {
+                primitives.push(primOp);
+            });
+
+            assert.equal(primitives.length, 5);
+
+            assert(primitives[0] instanceof Immy.ListPatches.Add);
+            assert.equal(primitives[0].index, 2);
+            assert.equal(primitives[0].value, 'foo');
+
+            assert(primitives[1] instanceof Immy.ListPatches.Add);
+            assert.equal(primitives[1].index, 2);
+            assert.equal(primitives[1].value, 'bar');
+
+            assert(primitives[2] instanceof Immy.ListPatches.Remove);
+            assert.equal(primitives[2].index, 2);
+            assert.equal(primitives[2].value, 'bar');
+
+            assert(primitives[3] instanceof Immy.ListPatches.Add);
+            assert.equal(primitives[3].index, 0);
+            assert.equal(primitives[3].value, 'baz');
+
+            assert(primitives[4] instanceof Immy.ListPatches.Add);
+            assert.equal(primitives[4].index, 6);
+            assert.equal(primitives[4].value, 'test');
+        });
+    });
 });

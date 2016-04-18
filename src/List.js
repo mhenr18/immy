@@ -69,6 +69,21 @@ List.prototype.withValueAdded = function (index, value) {
     return newList;
 };
 
+List.prototype.withValueRemoved = function (index) {
+    this.__getBuffer();
+
+    var newList = new List();
+    this.patchSource = newList;
+    this.patch = new ListPatches.Add(index, this.buffer[index]);
+
+    newList.buffer = this.buffer;
+    this.buffer = null;
+    newList.buffer.splice(index, 1);
+    newList.root = this.root;
+
+    return newList;
+};
+
 List.prototype.pop = function () {
     this.__getBuffer();
 
@@ -369,7 +384,13 @@ function orderedDiff(A, B, comparison) {
     for (i = 0, j = 0, k = 0; i < A.length && j < B.length; ++k) {
         var res = comparison(A[i], B[j]);
 
-        if (res == 0) {
+        if (res == null) {
+            // replacement, remove and add without changing the insertion index
+            patches.push(new ListPatches.Remove(k, A[i]));
+            patches.push(new ListPatches.Add(k, B[j]));
+            ++i;
+            ++j;
+        } else if (res == 0) {
             // not changed
             ++i;
             ++j;
@@ -419,11 +440,6 @@ List.prototype.withPatchApplied = function (patch) {
     patch.apply(newList.buffer);
 
     return newList;
-};
-
-List.prototype.join = function (separator) {
-    this.__getBuffer();
-    return this.buffer.join(separator);
 };
 
 module.exports = List;

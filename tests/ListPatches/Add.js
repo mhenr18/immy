@@ -35,4 +35,20 @@ describe('ListPatches.Add', function () {
             assert.equal(primitives[0].value, 'foo');
         });
     });
+
+    describe('#forEachPrimitive()', function () {
+        it('should call the callback for each primitive operation', function () {
+            var patch = new Immy.ListPatches.Add(2, 'foo');
+            var primitives = [];
+
+            patch.forEachPrimitive(function (primOp) {
+                primitives.push(primOp);
+            });
+
+            assert.equal(primitives.length, 1);
+            assert(primitives[0] instanceof Immy.ListPatches.Add);
+            assert.equal(primitives[0].index, 2);
+            assert.equal(primitives[0].value, 'foo');
+        });
+    });
 });

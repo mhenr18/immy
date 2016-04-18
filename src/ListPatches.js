@@ -37,6 +37,10 @@ Add.prototype.toPrimitives = function () {
     return [ this ];
 };
 
+Add.prototype.forEachPrimitive = function (cb) {
+    cb(this);
+};
+
 exports.Add = Add;
 
 
@@ -82,6 +86,10 @@ Remove.prototype.inverse = function () {
 
 Remove.prototype.toPrimitives = function () {
     return [ this ];
+};
+
+Remove.prototype.forEachPrimitive = function (cb) {
+    cb(this);
 };
 
 exports.Remove = Remove;
@@ -136,6 +144,14 @@ Sequence.prototype.toPrimitives = function () {
     }
 
     return primitives;
+};
+
+Sequence.prototype.forEachPrimitive = function (cb) {
+    var i;
+
+    for (i = 0; i < this.patches.length; ++i) {
+        this.patches[i].forEachPrimitive(cb);
+    }
 };
 
 exports.Sequence = Sequence;

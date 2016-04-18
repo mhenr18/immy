@@ -201,5 +201,41 @@ describe('List', function () {
                 }
             }
         });
+
+        it('should return a valid diff if disjoint lists are ordered and something compares as the same order but not equal', function () {
+            var a = new Immy.List([
+                { key: 0, value: 'foo' },
+                { key: 1, value: 'bar' },
+                { key: 2, value: 'baz' },
+            ]);
+
+            var b = new Immy.List([
+                { key: 0, value: 'foo' },
+                { key: 1, value: 'TEST' },
+                { key: 2, value: 'baz' }
+            ]);
+
+            var patch = a.compareTo(b, {
+                ordered: true,
+                comparison: function (a, b) {
+                    if (a.key == b.key && a.value != b.value) {
+                        return null;
+                    }
+
+                    return a.key - b.key;
+                }
+            });
+
+            var primOps = patch.toPrimitives();
+            assert.equal(primOps.length, 2);
+
+            assert(primOps[0] instanceof Immy.ListPatches.Remove);
+            assert.equal(primOps[0].index, 1);
+            assert.deepEqual(primOps[0].value, { key: 1, value: 'bar' });
+
+            assert(primOps[1] instanceof Immy.ListPatches.Add);
+            assert.equal(primOps[1].index, 1);
+            assert.deepEqual(primOps[1].value, { key: 1, value: 'TEST' });
+        });
     });
 });
