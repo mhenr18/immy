@@ -20,22 +20,39 @@ function ImmyMap(initMap) {
 }
 
 ImmyMap.prototype.__getMap = function () {
-    if (!this.map) {
-        if (!this.patchSource) {
-            // no patch source and no map means that we're an empty map
-            this.map = new Map();
-        } else {
-            this.patchSource.__getMap();
+  if (this.map) {
+    return
+  }
 
-            this.patch.apply(this.patchSource.map);
+  if (!this.patchSource) {
+    // no patch source and no map means that we're an empty list
+    this.map = new Map()
+    return
+  }
 
-            this.patchSource.patchSource = this;
-            this.patchSource.patch = this.patch.inverse();
-            this.map = this.patchSource.map;
-            this.patchSource.map = null;
-            this.patchSource = null;
-        }
-    }
+  // first traverse out along the patch source chain to find a starting point
+  // to apply patches from. because we don't store backreferences we need to
+  // maintain a stack of targets to apply patches to
+  var source = this.patchSource
+  var targets = [this]
+  while (source.patchSource) {
+    targets.push(source)
+    source = source.patchSource
+  }
+
+  // now work our way back down the stack and apply patches
+  while (targets.length > 0) {
+    var target = targets.pop()
+
+    target.patch.apply(source.map);
+    source.patchSource = target;
+    source.patch = target.patch.inverse();
+    target.map = source.map;
+    source.map = null;
+    target.patchSource = null;
+
+    source = target
+  }
 };
 
 ImmyMap.prototype.get = function (key) {

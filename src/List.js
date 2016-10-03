@@ -18,29 +18,46 @@ function List(initBuffer) {
     this.root = {};
 }
 
+
 // ensures that the list has a buffer that can be used.
-// TODO: reimplement this to not be recursive to avoid stack overflow on big lists
 List.prototype.__getBuffer = function () {
-    if (!this.buffer) {
-        if (!this.patchSource) {
-            // no patch source and no buffer means that we're an empty list
-            this.buffer = [];
-        } else {
-            this.patchSource.__getBuffer();
+  if (this.buffer) {
+    return
+  }
 
-            this.patch.apply(this.patchSource.buffer);
+  if (!this.patchSource) {
+    // no patch source and no buffer means that we're an empty list
+    this.buffer = []
+    return
+  }
 
-            this.patchSource.patchSource = this;
-            this.patchSource.patch = this.patch.inverse();
-            this.buffer = this.patchSource.buffer;
-            this.patchSource.buffer = null;
-            this.patchSource = null;
-        }
-    }
-};
+  // first traverse out along the patch source chain to find a starting point
+  // to apply patches from. because we don't store backreferences we need to
+  // maintain a stack of targets to apply patches to
+  var source = this.patchSource
+  var targets = [this]
+  while (source.patchSource) {
+    targets.push(source)
+    source = source.patchSource
+  }
+
+  // now work our way back down the stack and apply patches
+  while (targets.length > 0) {
+    var target = targets.pop()
+
+    target.patch.apply(source.buffer);
+    source.patchSource = target;
+    source.patch = target.patch.inverse();
+    target.buffer = source.buffer;
+    source.buffer = null;
+    target.patchSource = null;
+
+    source = target
+  }
+}
 
 List.prototype.push = function (value) {
-    this.__getBuffer();
+    if (!this.buffer) this.__getBuffer();
 
     var newList = new List();
     this.patchSource = newList;
@@ -55,7 +72,7 @@ List.prototype.push = function (value) {
 };
 
 List.prototype.withValueAdded = function (index, value) {
-    this.__getBuffer();
+    if (!this.buffer) this.__getBuffer();
 
     var newList = new List();
     this.patchSource = newList;
@@ -70,7 +87,7 @@ List.prototype.withValueAdded = function (index, value) {
 };
 
 List.prototype.withValueRemoved = function (index) {
-    this.__getBuffer();
+    if (!this.buffer) this.__getBuffer();
 
     var newList = new List();
     this.patchSource = newList;
@@ -85,7 +102,7 @@ List.prototype.withValueRemoved = function (index) {
 };
 
 List.prototype.pop = function () {
-    this.__getBuffer();
+    if (!this.buffer) this.__getBuffer();
 
     var newList = new List();
     this.patchSource = newList;
@@ -101,17 +118,17 @@ List.prototype.pop = function () {
 
 List.prototype.size = function () {
     // TODO: make this fast
-    this.__getBuffer();
+    if (!this.buffer) this.__getBuffer();
     return this.buffer.length;
 };
 
 List.prototype.get = function (index) {
-    this.__getBuffer();
+    if (!this.buffer) this.__getBuffer();
     return this.buffer[index];
 };
 
 List.prototype.set = function (index, newValue) {
-    this.__getBuffer();
+    if (!this.buffer) this.__getBuffer();
 
     var newList = new List();
     this.patchSource = newList;
@@ -129,12 +146,12 @@ List.prototype.set = function (index, newValue) {
 };
 
 List.prototype.forEach = function (fn) {
-    this.__getBuffer();
+    if (!this.buffer) this.__getBuffer();
     this.buffer.forEach(fn);
 };
 
 List.prototype.findIndex = function (pred) {
-    this.__getBuffer();
+    if (!this.buffer) this.__getBuffer();
     return this.buffer.findIndex(pred);
 };
 
@@ -142,7 +159,7 @@ List.prototype.findIndex = function (pred) {
 // -ve if it's less than the target, and +ve if it's greater than the target. note
 // that this function doesn't take the target itself as an argument.
 List.prototype.findIndexWithBinarySearch = function (comparisonPred) {
-    this.__getBuffer();
+    if (!this.buffer) this.__getBuffer();
 
     var minIndex = 0;
     var maxIndex = this.buffer.length - 1;
@@ -174,7 +191,7 @@ List.prototype.findIndexWithBinarySearch = function (comparisonPred) {
 };
 
 List.prototype.findInsertionIndexWithBinarySearch = function (comparisonPred) {
-    this.__getBuffer();
+    if (!this.buffer) this.__getBuffer();
 
     if (this.buffer.length == 0) {
         return 0;
@@ -230,7 +247,7 @@ List.prototype.slice = function (begin, end) {
         return this;
     }
 
-    this.__getBuffer();
+    if (!this.buffer) this.__getBuffer();
 
     // note, no patch here because we keep our buffer and the slice has its own
     // - the sliced list will have a separate root to us
@@ -305,13 +322,13 @@ List.prototype.compareTo = function (otherList, hints) {
             // this list a buffer and walk from the other list. that way, we don't
             // have to invert the patch before returning it
 
-            this.__getBuffer();
+            if (!this.buffer) this.__getBuffer();
             return walk(otherList);
         }
     } else {
         // will result in both lists having buffers as we know that they aren't
         // sharing one due to having different roots
-        this.__getBuffer();
+        if (!this.buffer) this.__getBuffer();
         otherList.__getBuffer();
 
         if (hints && hints.ordered) {
@@ -429,7 +446,7 @@ function orderedDiff(A, B, comparison) {
 }
 
 List.prototype.withPatchApplied = function (patch) {
-    this.__getBuffer();
+    if (!this.buffer) this.__getBuffer();
 
     var newList = new List();
     this.patchSource = newList;

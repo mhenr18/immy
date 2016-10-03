@@ -20,9 +20,10 @@
  *
  ********************************************************************************/
 
-function Add(index, value) {
+function Add(index, value, _inverse) {
     this.index = index;
     this.value = value;
+    this._inverse = _inverse
 };
 
 Add.prototype.apply = function (array) {
@@ -30,7 +31,11 @@ Add.prototype.apply = function (array) {
 };
 
 Add.prototype.inverse = function () {
-    return new Remove(this.index, this.value);
+    if (!this._inverse) {
+        this._inverse = new Remove(this.index, this.value, this)
+    }
+    
+    return this._inverse
 };
 
 Add.prototype.toPrimitives = function () {
@@ -71,9 +76,10 @@ exports.Add = Add;
  *
  ********************************************************************************/
 
-function Remove(index, value) {
+function Remove(index, value, _inverse) {
     this.index = index;
     this.value = value;
+    this._inverse = _inverse
 };
 
 Remove.prototype.apply = function (array) {
@@ -81,7 +87,11 @@ Remove.prototype.apply = function (array) {
 };
 
 Remove.prototype.inverse = function () {
-    return new Add(this.index, this.value);
+    if (!this._inverse) {
+        this._inverse = new Add(this.index, this.value, this)
+    }
+
+    return this._inverse
 };
 
 Remove.prototype.toPrimitives = function () {
@@ -112,8 +122,9 @@ exports.Remove = Remove;
  *
  ********************************************************************************/
 
-function Sequence(patches) {
+function Sequence(patches, _inverse) {
     this.patches = patches;
+    this._inverse = _inverse
 };
 
 Sequence.prototype.apply = function (buffer) {
@@ -125,14 +136,18 @@ Sequence.prototype.apply = function (buffer) {
 };
 
 Sequence.prototype.inverse = function () {
-    var inverted = [];
-    var i;
+    if (!this._inverse) {
+        var inverted = [];
+        var i;
 
-    for (i = this.patches.length - 1; i >= 0; --i) {
-        inverted.push(this.patches[i].inverse());
+        for (i = this.patches.length - 1; i >= 0; --i) {
+            inverted.push(this.patches[i].inverse());
+        }
+
+        this._inverse = new Sequence(inverted, this);
     }
 
-    return new Sequence(inverted);
+    return this._inverse
 };
 
 Sequence.prototype.toPrimitives = function () {
